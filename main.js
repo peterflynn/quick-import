@@ -21,7 +21,7 @@
  */
 
 
-/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50 */
+/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50, regexp: true */
 /*global define, brackets, $ */
 
 define(function (require, exports, module) {
@@ -38,8 +38,6 @@ define(function (require, exports, module) {
         QuickOpen           = brackets.getModule("search/QuickOpen");
     
     // TODO
-    //  - detect equal sign spacing
-    //  - detect neighboring brackets.getModule()
     //  - allow invoking from anywhere in file
     //  - bump out other lines' = signs if needed
     //  - if first line, add 'var'
@@ -76,6 +74,23 @@ define(function (require, exports, module) {
             return str;
         }
         return str.substring(0, index);
+    }
+    
+    var REQUIRE_LINE_REGEXP = /^(\s*)(\w.*)=.+(,|;)/;
+    
+    function isFirstLine(match) {
+        return match[2].indexOf("var ") !== -1;
+    }
+    function isLastLine(match) {
+        return match[3] === ";";
+    }
+    
+    function nChars(char, n) {
+        var str = "";
+        while (n--) {
+            str += char;
+        }
+        return str;
     }
     
     /**
@@ -153,11 +168,40 @@ define(function (require, exports, module) {
                 return;
             }
             
-            var code = "        " + importModuleInfo.moduleName + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\"),\n";
-            
             var insertionPos = editor.getCursorPos();
-            insertionPos.line++;
-            insertionPos.ch = 0;
+            
+            var curLine = editor.document.getLine(insertionPos.line);
+            var curLineMatch = REQUIRE_LINE_REGEXP.exec(curLine);
+            
+            var leadingWs;
+            
+            if (!curLineMatch) {
+                console.error("Warning: Cursor is not in a block of require() calls: '" + curLine + "'");
+                leadingWs = "";
+            } else if (isFirstLine(curLineMatch)) {
+                insertionPos.line++; // insert below first line
+                insertionPos.ch = 0;
+                leadingWs = curLineMatch[1] + "    ";
+            } else if (isLastLine(curLineMatch)) {
+                insertionPos.ch = 0; // insert above last line
+                leadingWs = curLineMatch[1];
+            } else {
+                insertionPos.line++; // insert below current line
+                insertionPos.ch = 0;
+                leadingWs = curLineMatch[1];
+            }
+            
+            var trailingWs;
+            var eqColumn = curLine.indexOf("=");
+            var naturalEqColumn = leadingWs.length + importModuleInfo.moduleName.length + 1; // we always force one space before "=" beyond trailingWs, hence +1
+            if (naturalEqColumn >= eqColumn) {
+                trailingWs = "";
+            } else {
+                trailingWs = nChars(" ", eqColumn - naturalEqColumn);
+            }
+            
+            var code = leadingWs + importModuleInfo.moduleName + trailingWs + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\"),\n";
+            
             editor.document.replaceRange(code, insertionPos);
         }
     }
