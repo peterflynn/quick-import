@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Peter Flynn.
+ * Copyright (c) 2013 Peter Flynn.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,7 +38,11 @@ define(function (require, exports, module) {
         QuickOpen           = brackets.getModule("search/QuickOpen");
     
     // TODO
-    //  - allow invoking from anywhere in file
+    //  - insert in proper alphabetical order (by rel-path, not by bare module name)
+    //  - handle existing import block only 1 line long (it's both first & last line)
+    //  - handle NO existing import block - create new import block 'near' top of file
+    //  - remove folder-name assumptions
+    //  - show toast for imports that were inserted outside of viewport area
     //  - bump out other lines' = signs if needed
     //  - if first line, add 'var'
     //  - if last line, move ';' down
@@ -53,7 +57,7 @@ define(function (require, exports, module) {
     
     var REQUIRE_ROOT = "/src/";
     var EXTENSIONS_ROOT = "extensions/";  // atop REQUIRE_ROOT
-    
+
     function stripPrefix(str, prefix, allowMoreToLeft) {
         var index = str.indexOf(prefix);
         if (index === -1 || (!allowMoreToLeft && index !== 0)) {
@@ -76,13 +80,13 @@ define(function (require, exports, module) {
         return str.substring(0, index);
     }
     
-    var REQUIRE_LINE_REGEXP = /^(\s*)(\w.*)=.+(,|;)/;
+    var REQUIRE_LINE_REGEXP = /^(\s*)(\w.*)=(.+)(,|;)/;
     
     function isFirstLine(match) {
         return match[2].indexOf("var ") !== -1;
     }
     function isLastLine(match) {
-        return match[3] === ";";
+        return match[4] === ";";
     }
     
     function nChars(char, n) {
@@ -129,6 +133,52 @@ define(function (require, exports, module) {
     }
     
     /**
+     * @param {!Editor} editor
+     * @param {!string} requireCall  Name of import call; we prefer to insert in a block of like-named calls
+     * @return {!{pos:{line,ch}, lineText:string, match:Array.<string>, isFirstLine:?boolean, isLastLine:?boolean}}
+     */
+    function determineInsertionPos(editor, requireCall) {
+        var doc = editor.document;
+        var insertionPos = editor.getCursorPos();
+        
+        var lineText = doc.getLine(insertionPos.line);
+        var match = REQUIRE_LINE_REGEXP.exec(lineText);
+        
+        // Nothing at cursor pos -- let's look elsewhere
+        if (!match) {
+            var nLines = editor.lineCount();
+            var i;
+            for (i = 0; i < nLines; i++) {
+                var maybeLineText = doc.getLine(i);
+                var maybeMatch = REQUIRE_LINE_REGEXP.exec(maybeLineText);
+                if (maybeMatch && maybeMatch[3].indexOf(requireCall) !== -1) {
+                    lineText = maybeLineText;
+                    match = maybeMatch;
+                    insertionPos.line = i;
+                    break;
+                }
+            }
+        }
+        
+        insertionPos.ch = 0;
+        var result = { pos: insertionPos, lineText: lineText, match: match };
+        
+        if (!match) {
+            console.warn("Quick Insert: Cannot find a block of " + requireCall + "() calls to insert into. Inserting at cursor pos...");
+        } else if (isFirstLine(match)) {
+            result.isFirstLine = true;
+            insertionPos.line++; // insert below first line
+        } else if (isLastLine(match)) {
+            result.isLastLine = true;
+            // insert above last line (don't touch insertionPos.line)
+        } else {
+            insertionPos.line++; // insert below current line
+        }
+        
+        return result;
+    }
+    
+    /**
      * @param {SearchResult} selectedItem
      */
     function itemSelect(selectedItem) {
@@ -168,31 +218,23 @@ define(function (require, exports, module) {
                 return;
             }
             
-            var insertionPos = editor.getCursorPos();
+            // Find a location to insert
+            var insertionContext = determineInsertionPos(editor, requireCall);
+            var insertionPos = insertionContext.pos;
             
-            var curLine = editor.document.getLine(insertionPos.line);
-            var curLineMatch = REQUIRE_LINE_REGEXP.exec(curLine);
-            
+            // Determine indentation (leading whitespace)
             var leadingWs;
-            
-            if (!curLineMatch) {
-                console.error("Warning: Cursor is not in a block of require() calls: '" + curLine + "'");
+            if (!insertionContext.match) {
                 leadingWs = "";
-            } else if (isFirstLine(curLineMatch)) {
-                insertionPos.line++; // insert below first line
-                insertionPos.ch = 0;
-                leadingWs = curLineMatch[1] + "    ";
-            } else if (isLastLine(curLineMatch)) {
-                insertionPos.ch = 0; // insert above last line
-                leadingWs = curLineMatch[1];
+            } else if (insertionContext.isFirstLine) {
+                leadingWs = insertionContext.match[1] + "    ";
             } else {
-                insertionPos.line++; // insert below current line
-                insertionPos.ch = 0;
-                leadingWs = curLineMatch[1];
+                leadingWs = insertionContext.match[1];
             }
             
+            // Determine whitespace between module name and '='
             var trailingWs;
-            var eqColumn = curLine.indexOf("=");
+            var eqColumn = insertionContext.lineText.indexOf("=");
             var naturalEqColumn = leadingWs.length + importModuleInfo.moduleName.length + 1; // we always force one space before "=" beyond trailingWs, hence +1
             if (naturalEqColumn >= eqColumn) {
                 trailingWs = "";
@@ -200,6 +242,7 @@ define(function (require, exports, module) {
                 trailingWs = nChars(" ", eqColumn - naturalEqColumn);
             }
             
+            // Make the edit
             var code = leadingWs + importModuleInfo.moduleName + trailingWs + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\"),\n";
             
             editor.document.replaceRange(code, insertionPos);

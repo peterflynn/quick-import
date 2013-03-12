@@ -10,7 +10,6 @@ Press Ctrl+I to open a file-search popup, find the file you want, and hit Enter 
 on the line beneath your cursor. Also supports brackets.getModule(), if you have a src/extensions folder tree.
 
 ### Caveats
-* Your cursor must be inside the block of require() calls where you want the new code to be inserted
 * Assumes the root of your require() source tree is a folder named "src"
 * Assumes this declaration is part of a comma-separated list of imports &ndash; that is, assumes there's a `var` line above it
   and a line ending in `;` below it, so the line you get ends in `,`
