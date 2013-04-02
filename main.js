@@ -38,17 +38,18 @@ define(function (require, exports, module) {
         QuickOpen           = brackets.getModule("search/QuickOpen");
     
     // TODO
-    //  - insert in proper alphabetical order (by rel-path, not by bare module name)
+    //  - insert in proper alphabetical order (by rel-path, not by bare module name) (adjusting "var" and ";" location as needed)
+    //  - filter out or heavily down-rank non-.js files?
     //  - handle existing import block only 1 line long (it's both first & last line)
     //  - handle NO existing import block - create new import block 'near' top of file
     //  - remove folder-name assumptions
+    //  - work in Brackets unit test code (files outside /src & with special /spec context)
     //  - show toast for imports that were inserted outside of viewport area
     //  - bump out other lines' = signs if needed
-    //  - if first line, add 'var'
-    //  - if last line, move ';' down
-    //  - if text selected, replace instead of insert
+    //  - support pre-canned import options for NodeJS standard APIs
+    //  - recognize locally installed NodeJS packages (npm) & list those as options too
+    //  - support pure-AMD syntax (array of module names + list of arguments)
     //  - if file extension != .js, generate a "text!" require() instead
-    //  - detect indent level
     //  - detect duplicates
     
     
@@ -132,6 +133,7 @@ define(function (require, exports, module) {
         };
     }
     
+    
     /**
      * @param {!Editor} editor
      * @param {!string} requireCall  Name of import call; we prefer to insert in a block of like-named calls
@@ -139,42 +141,48 @@ define(function (require, exports, module) {
      */
     function determineInsertionPos(editor, requireCall) {
         var doc = editor.document;
-        var insertionPos = editor.getCursorPos();
         
-        var lineText = doc.getLine(insertionPos.line);
-        var match = REQUIRE_LINE_REGEXP.exec(lineText);
+        function checkInsertionPos(line) {
+            var lineText = doc.getLine(line);
+            var match = REQUIRE_LINE_REGEXP.exec(lineText);
+            if (match && match[3].indexOf(requireCall) !== -1) {
+                return { lineText: lineText, match: match };
+            }
+            return null;
+        }
+        
+        var insertionPos = editor.getCursorPos();
+        var result = checkInsertionPos(insertionPos.line);
         
         // Nothing at cursor pos -- let's look elsewhere
-        if (!match) {
+        if (!result) {
             var nLines = editor.lineCount();
             var i;
-            for (i = 0; i < nLines; i++) {
-                var maybeLineText = doc.getLine(i);
-                var maybeMatch = REQUIRE_LINE_REGEXP.exec(maybeLineText);
-                if (maybeMatch && maybeMatch[3].indexOf(requireCall) !== -1) {
-                    lineText = maybeLineText;
-                    match = maybeMatch;
-                    insertionPos.line = i;
-                    break;
-                }
+            for (i = 0; i < nLines && !result; i++) {
+                insertionPos.line = i;
+                result = checkInsertionPos(i);
             }
         }
         
-        insertionPos.ch = 0;
-        var result = { pos: insertionPos, lineText: lineText, match: match };
-        
-        if (!match) {
+        if (!result) {
             console.warn("Quick Insert: Cannot find a block of " + requireCall + "() calls to insert into. Inserting at cursor pos...");
-        } else if (isFirstLine(match)) {
+            insertionPos = editor.getCursorPos();
+            return { lineText: doc.getLine(insertionPos.line), match: null, pos: insertionPos };
+        }
+        
+        insertionPos.ch = 0;
+        
+        if (isFirstLine(result.match)) {
             result.isFirstLine = true;
             insertionPos.line++; // insert below first line
-        } else if (isLastLine(match)) {
+        } else if (isLastLine(result.match)) {
             result.isLastLine = true;
             // insert above last line (don't touch insertionPos.line)
         } else {
             insertionPos.line++; // insert below current line
         }
         
+        result.pos = insertionPos;
         return result;
     }
     

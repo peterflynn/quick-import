@@ -10,9 +10,12 @@ Press Ctrl+I to open a file-search popup, find the file you want, and hit Enter 
 on the line beneath your cursor. Also supports brackets.getModule(), if you have a src/extensions folder tree.
 
 ### Caveats
+* Only supports CommonJS-style imports (require() calls) - does not support "pure AMD" syntax (array of module names mapping to
+  a list of arguments). Note that RequireJS supports both formats.
 * Assumes the root of your require() source tree is a folder named "src"
-* Assumes this declaration is part of a comma-separated list of imports &ndash; that is, assumes there's a `var` line above it
-  and a line ending in `;` below it, so the line you get ends in `,`
+* You must already have a block of require() calls somewhere in your module (typically near the top)
+* Assumes this block is a comma-separated list with one import per line &ndash; that is, assumes there's a `var` line at the start
+  and a line ending in `;` at the end, with any lines in the middle ending in `,`
 
 
 What is Brackets?
