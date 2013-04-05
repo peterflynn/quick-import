@@ -34,5 +34,4 @@ To use Quick Import:
 MIT-licensed -- see `main.js` for details.
 
 ### Compatibility
-**_No released verson of Brackets supports this yet._** You must pull the latest from master because the fix for
-[issue #330](https://github.com/adobe/brackets/issues/330) is required.
+Requires Brackets Sprint 22 or newer. Not compatible with Adobe Edge Code yet.

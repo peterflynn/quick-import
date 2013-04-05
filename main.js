@@ -38,11 +38,12 @@ define(function (require, exports, module) {
         QuickOpen           = brackets.getModule("search/QuickOpen");
     
     // TODO
-    //  - insert in proper alphabetical order (by rel-path, not by bare module name) (adjusting "var" and ";" location as needed)
-    //  - filter out or heavily down-rank non-.js files?
     //  - handle existing import block only 1 line long (it's both first & last line)
-    //  - handle NO existing import block - create new import block 'near' top of file
     //  - remove folder-name assumptions
+    //      TODO: write up 'how to use prefs' docs while doing this
+    //  - insert in proper alphabetical order (by rel-path, not by bare module name) (adjusting "var" and ";" location as needed)
+    //  - handle NO existing import block - create new import block 'near' top of file
+    //  - filter out or heavily down-rank non-.js files?
     //  - work in Brackets unit test code (files outside /src & with special /spec context)
     //  - show toast for imports that were inserted outside of viewport area
     //  - bump out other lines' = signs if needed
@@ -115,14 +116,25 @@ define(function (require, exports, module) {
         var extensionName;
         var extensionsRootRelPath = stripPrefix(relPath, EXTENSIONS_ROOT);
         if (extensionsRootRelPath) {
-            extensionName = extensionsRootRelPath.substring(0, extensionsRootRelPath.indexOf("/")); // will be "" if -1
-            if (!extensionName) {
+            var firstFolder = extensionsRootRelPath.indexOf("/");
+            if (firstFolder === -1) {
+                console.error("File is in extensions folder but not in any extensions root: " + fullPath);
+                return;
+            }
+            var extensionType = extensionsRootRelPath.substring(0, firstFolder);
+            if (extensionType !== "dev" && extensionType !== "default") {
+                console.warn("Unknown extensions root folder '" + extensionType + "' for module: " + fullPath);
+            }
+            
+            var secondFolder = extensionsRootRelPath.indexOf("/", firstFolder + 1);
+            if (secondFolder === -1) {
                 console.error("File is in extensions root but not in any extension: " + fullPath);
                 return;
             }
+            extensionName = extensionsRootRelPath.substring(firstFolder + 1, secondFolder); // will be "" if -1
             
-            // Change relPath's context from global Require root to this extenion's Require root
-            relPath = extensionsRootRelPath.substring(extensionName.length + 1);
+            // Change relPath's context from global Require root to this extension's Require root
+            relPath = extensionsRootRelPath.substring(secondFolder + 1);
         }
         
         var fileName = afterLast(relPath, "/");
@@ -156,7 +168,7 @@ define(function (require, exports, module) {
         
         // Nothing at cursor pos -- let's look elsewhere
         if (!result) {
-            var nLines = editor.lineCount();
+            var nLines = Math.min(editor.lineCount(), 200);
             var i;
             for (i = 0; i < nLines && !result; i++) {
                 insertionPos.line = i;
@@ -164,22 +176,23 @@ define(function (require, exports, module) {
             }
         }
         
+        // Couldn't find anything near top of file
         if (!result) {
+            // TODO: create a new require() block at top of module
             console.warn("Quick Insert: Cannot find a block of " + requireCall + "() calls to insert into. Inserting at cursor pos...");
-            insertionPos = editor.getCursorPos();
+            insertionPos = { line: editor.getCursorPos().line, ch: 0 };
             return { lineText: doc.getLine(insertionPos.line), match: null, pos: insertionPos };
         }
         
         insertionPos.ch = 0;
         
-        if (isFirstLine(result.match)) {
-            result.isFirstLine = true;
-            insertionPos.line++; // insert below first line
-        } else if (isLastLine(result.match)) {
-            result.isLastLine = true;
-            // insert above last line (don't touch insertionPos.line)
-        } else {
-            insertionPos.line++; // insert below current line
+        result.isFirstLine = isFirstLine(result.match);
+        result.isLastLine  = isLastLine(result.match);
+        
+        if (!result.isLastLine || result.isFirstLine) {
+            // Insert below unless insertion pt is on last line, in which case we leave insertionPos.line unchanged (to insert above)
+            // (if there's only one line though, treat as first line not last, and still insert below)
+            insertionPos.line++;
         }
         
         result.pos = insertionPos;
@@ -187,24 +200,28 @@ define(function (require, exports, module) {
     }
     
     /**
-     * @param {SearchResult} selectedItem
+     * Inserts a require() statement into the current editor
+     * @param {string} importPath  Full path of file to add a require() import for
      */
-    function itemSelect(selectedItem) {
+    function insertImport(importPath) {
         
         // Generate import code
         var editor = EditorManager.getActiveEditor();
-        if (selectedItem && editor) {
+        if (editor) {
             
             // If...
             // Import is in extension, file being edited isn't -- error
             // Import is in extension, file being edited is too -- use require() (but if *different* extensions, error)
-            // Import not in extension, file being edit isn't either -- use require()
-            // Import not in extension, file being edit is -- use brackets.getModule()
+            // Import not in extension, file being edited isn't either -- use require()
+            // Import not in extension, file being edited is -- use brackets.getModule()
             
-            var importPath  = selectedItem.fullPath;
             var currentPath = editor.document.file.fullPath;
             var importModuleInfo  = parseModulePath(importPath);
             var currentModuleInfo = parseModulePath(currentPath);
+            
+            if (!importModuleInfo || !currentModuleInfo) {
+                return;
+            }
             
             var requireCall;
             if (importModuleInfo.extensionName) {
@@ -263,6 +280,13 @@ define(function (require, exports, module) {
     
     var searchPromise;
     var latestQuery;
+    
+    /**
+     * @param {SearchResult} selectedItem
+     */
+    function itemSelect(selectedItem) {
+        insertImport(selectedItem.fullPath);
+    }
     
     /**
      * @param {!string} query
@@ -369,7 +393,8 @@ define(function (require, exports, module) {
         {
             name: "Quick RequireJS Import",
             label: "RequireJS Import",  // ignored before Sprint 22
-            fileTypes: [],  // empty array = all file types
+            languageIds: [],  // empty array = all file types  (Sprint 23+)
+            fileTypes:   [],  // (< Sprint 23)
             done: function () {},
             search: search,
             match: match,
@@ -380,8 +405,11 @@ define(function (require, exports, module) {
     );
     
     function beginFileSearch() {
+        var currentEditor = EditorManager.getActiveEditor();
+        var prepopulateText = (currentEditor && currentEditor.getSelectedText()) || "";
+
         // Begin Quick Open in our search mode
-        QuickOpen.beginSearch("=");
+        QuickOpen.beginSearch("=", prepopulateText);
     }
     
     
@@ -394,4 +422,7 @@ define(function (require, exports, module) {
     menu.addMenuDivider(Menus.LAST);
     menu.addMenuItem(QUICK_IMPORT_COMMAND_ID, "Ctrl-I", Menus.LAST);
     
+    
+    // For unit tests
+    exports.insertImport = insertImport;
 });
