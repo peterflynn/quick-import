@@ -1,5 +1,5 @@
-Quick Import
-============
+Quick Import for Brackets
+=========================
 Quick Import is a shortcut for generating RequireJS/CommonJS import statements like this:
 
 ```
@@ -12,22 +12,21 @@ on the line beneath your cursor. Also supports brackets.getModule(), if you have
 ### Caveats
 * Only supports CommonJS-style imports (require() calls) - does not support "pure AMD" syntax (array of module names mapping to
   a list of arguments). Note that RequireJS supports both formats.
-* Assumes the root of your require() source tree is a folder named "src"
+* Assumes the root of your require() paths is a folder named "src"
 * You must already have a block of require() calls somewhere in your module (typically near the top)
 * Assumes this block is a comma-separated list with one import per line &ndash; that is, assumes there's a `var` line at the start
   and a line ending in `;` at the end, with any lines in the middle ending in `,`
 
 
-What is Brackets?
-=================
+How to Install
+==============
 Quick Import is an extension for [Brackets](https://github.com/adobe/brackets/), a new open-source code editor for the web.
 
 To use Quick Import:
 
-1. [Download the ZIP](https://github.com/peterflynn/quick-import/archive/master.zip) and unzip it; or clone this repo
-2. Open your extensions folder: _Help > Show Extensions Folder_
-3. Place the folder so the structure is: `extensions/user/quick-import/main.js`
-4. Restart Brackets!
+1. Choose _File > Install Extension_
+2. Enter this URL: _https://github.com/peterflynn/quick-import_
+3. Click _Install_!
 
 
 ### License
