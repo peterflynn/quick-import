@@ -165,7 +165,8 @@ define(function (require, exports, module) {
             match: match,
             itemFocus: function () {},
             itemSelect: itemSelect,
-            resultsFormatter: resultFormatter
+            resultsFormatter: resultFormatter,
+            matcherOptions: { segmentedSearch: true }
         }
     );
     
