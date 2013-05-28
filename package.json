@@ -1,6 +1,8 @@
 {
     "name": "pflynn.quick.import",
     "title": "Quick Require Import",
+    "homepage": "https://github.com/peterflynn/quick-import",
+    "author": "Peter Flynn",
     "version": "1.0.0",
     "engines": { "brackets": ">=0.22" },
     "description": "Shortcut for generating RequireJS/CommonJS import statements (require() calls). Press Ctrl+I (Cmd+I on Mac) and type a filename to insert a require() line at the top of your file (in an existing block of imports if available)."
