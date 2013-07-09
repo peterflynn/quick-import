@@ -104,7 +104,7 @@ define(function (require, exports, module) {
                 fileList = result;
             });
         
-        if (fileListPromise.isResolved()) {
+        if (fileListPromise.state() === "resolved") {
             return doSearch(query, fileList, matcher);
         } else {
             // Index isn't built yet - start waiting
