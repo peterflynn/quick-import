@@ -205,87 +205,92 @@ define(function (require, exports, module) {
      * Inserts a require() statement into the current editor
      * @param {string} importPath  Full path of file to add a require() import for
      */
-    function insertImport(importPath) {
+    function doInsert(editor, importPath) {
         
-        // Generate import code
+        // If...
+        // Import is in extension, file being edited isn't -- error
+        // Import is in extension, file being edited is too -- use require() (but if *different* extensions, error)
+        // Import not in extension, file being edited isn't either -- use require()
+        // Import not in extension, file being edited is -- use brackets.getModule()
+        
+        var currentPath = editor.document.file.fullPath;
+        var importModuleInfo  = parseModulePath(importPath);
+        var currentModuleInfo = parseModulePath(currentPath);
+        
+        if (!importModuleInfo || !currentModuleInfo) {
+            return;
+        }
+        
+        var requireCall;
+        if (importModuleInfo.extensionName) {
+            if (!currentModuleInfo.extensionName) {
+                console.error("Can't import extension file " + importPath + " from outside module " + currentPath);
+            } else if (currentModuleInfo.extensionName !== importModuleInfo.extensionName) {
+                console.error("Can't import extension file " + importPath + " from different extension's module " + currentPath);
+            } else {
+                requireCall = "require";
+            }
+        } else {
+            if (currentModuleInfo.extensionName) {
+                requireCall = "brackets.getModule";
+            } else {
+                requireCall = "require";
+            }
+        }
+        if (!requireCall) {
+            return;
+        }
+        
+        // Find a location to insert
+        var insertionContext = determineInsertionPos(editor, requireCall);
+        var insertionPos = insertionContext.pos;
+        
+        // Determine indentation (leading whitespace)
+        var leadingWs;
+        if (!insertionContext.match) {
+            leadingWs = "";
+        } else if (insertionContext.isFirstLine) {
+            leadingWs = insertionContext.match[1] + "    ";
+        } else {
+            leadingWs = insertionContext.match[1];
+        }
+        
+        // Semicolon fixup
+        var trailingDelim = ",";
+        if (insertionContext.isFirstLine && insertionContext.isLastLine) {
+            trailingDelim = ";";  // move semicolon to our new line...
+            
+            var lineNum = insertionContext.pos.line - 1;
+            var lineText = editor.document.getLine(lineNum);
+            var semicolon = lineText.lastIndexOf(";");
+            if (semicolon !== -1) {
+                editor.document.replaceRange(",", {line: lineNum, ch: semicolon}, {line: lineNum, ch: semicolon + 1});  // ...from the old line
+            }
+        }
+        
+        // Determine whitespace between module name and '='
+        var trailingWs;
+        var eqColumn = insertionContext.lineText.indexOf("=");
+        var naturalEqColumn = leadingWs.length + importModuleInfo.moduleName.length + 1; // we always force one space before "=" beyond trailingWs, hence +1
+        if (naturalEqColumn >= eqColumn) {
+            trailingWs = "";
+        } else {
+            trailingWs = nChars(" ", eqColumn - naturalEqColumn);
+        }
+        
+        // Make the edit
+        var code = leadingWs + importModuleInfo.moduleName + trailingWs + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\")" + trailingDelim + "\n";
+        
+        editor.document.replaceRange(code, insertionPos);
+    }
+    
+    
+    function insertImport(importPath) {
         var editor = EditorManager.getActiveEditor();
         if (editor) {
-            
-            // If...
-            // Import is in extension, file being edited isn't -- error
-            // Import is in extension, file being edited is too -- use require() (but if *different* extensions, error)
-            // Import not in extension, file being edited isn't either -- use require()
-            // Import not in extension, file being edited is -- use brackets.getModule()
-            
-            var currentPath = editor.document.file.fullPath;
-            var importModuleInfo  = parseModulePath(importPath);
-            var currentModuleInfo = parseModulePath(currentPath);
-            
-            if (!importModuleInfo || !currentModuleInfo) {
-                return;
-            }
-            
-            var requireCall;
-            if (importModuleInfo.extensionName) {
-                if (!currentModuleInfo.extensionName) {
-                    console.error("Can't import extension file " + importPath + " from outside module " + currentPath);
-                } else if (currentModuleInfo.extensionName !== importModuleInfo.extensionName) {
-                    console.error("Can't import extension file " + importPath + " from different extension's module " + currentPath);
-                } else {
-                    requireCall = "require";
-                }
-            } else {
-                if (currentModuleInfo.extensionName) {
-                    requireCall = "brackets.getModule";
-                } else {
-                    requireCall = "require";
-                }
-            }
-            if (!requireCall) {
-                return;
-            }
-            
-            // Find a location to insert
-            var insertionContext = determineInsertionPos(editor, requireCall);
-            var insertionPos = insertionContext.pos;
-            
-            // Determine indentation (leading whitespace)
-            var leadingWs;
-            if (!insertionContext.match) {
-                leadingWs = "";
-            } else if (insertionContext.isFirstLine) {
-                leadingWs = insertionContext.match[1] + "    ";
-            } else {
-                leadingWs = insertionContext.match[1];
-            }
-            
-            // Semicolon fixup
-            var trailingDelim = ",";
-            if (insertionContext.isFirstLine && insertionContext.isLastLine) {
-                trailingDelim = ";";  // move semicolon to our new line...
-                
-                var lineNum = insertionContext.pos.line - 1;
-                var lineText = editor.document.getLine(lineNum);
-                var semicolon = lineText.lastIndexOf(";");
-                if (semicolon !== -1) {
-                    editor.document.replaceRange(",", {line: lineNum, ch: semicolon}, {line: lineNum, ch: semicolon + 1});  // ...from the old line
-                }
-            }
-            
-            // Determine whitespace between module name and '='
-            var trailingWs;
-            var eqColumn = insertionContext.lineText.indexOf("=");
-            var naturalEqColumn = leadingWs.length + importModuleInfo.moduleName.length + 1; // we always force one space before "=" beyond trailingWs, hence +1
-            if (naturalEqColumn >= eqColumn) {
-                trailingWs = "";
-            } else {
-                trailingWs = nChars(" ", eqColumn - naturalEqColumn);
-            }
-            
-            // Make the edit
-            var code = leadingWs + importModuleInfo.moduleName + trailingWs + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\")" + trailingDelim + "\n";
-            
-            editor.document.replaceRange(code, insertionPos);
+            editor.document.batchOperation(function () {
+                doInsert(editor, importPath);
+            });
         }
     }
     
