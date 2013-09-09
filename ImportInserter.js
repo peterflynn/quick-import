@@ -21,9 +21,12 @@
  */
 
 
-/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, maxerr: 50, regexp: true */
+/*jslint vars: true, plusplus: true, devel: true, nomen: true, indent: 4, regexp: true */
 /*global define, brackets, $ */
 
+/**
+ * Handles code generation & insertion
+ */
 define(function (require, exports, module) {
     "use strict";
     
@@ -31,11 +34,12 @@ define(function (require, exports, module) {
     var EditorManager       = brackets.getModule("editor/EditorManager");
     
     // TODO
-    //  - handle existing import block only 1 line long (it's both first & last line)
-    //  - remove folder-name assumptions
-    //      TODO: write up 'how to use prefs' docs while doing this
+    //  - deal with /test/spec
+    //  - deal with special cases like Editor & NFS
     //  - insert in proper alphabetical order (**by rel-path**, not by bare module name) (adjusting "var" and ";" location as needed)
     //  - handle NO existing import block - create new import block 'near' top of file
+    //  - remove folder-name assumptions
+    //      TODO: write up 'how to use prefs' docs while doing this
     //  - filter out or heavily down-rank non-.js files?
     //  - work in Brackets unit test code (files outside /src & with special /spec context)
     //  - bump out other lines' = signs if needed
@@ -142,7 +146,12 @@ define(function (require, exports, module) {
     /**
      * @param {!Editor} editor
      * @param {!string} requireCall  Name of import call; we prefer to insert in a block of like-named calls
+     * 
      * @return {!{pos:{line,ch}, lineText:string, match:Array.<string>, isFirstLine:?boolean, isLastLine:?boolean}}
+     *    pos: position to insert at; ch always 0 (so pos.line is line we're inserting before)
+     *    isFirstLine: true if pos.line - 1 is first line of require() block (with "var"); insertion pt will be 2nd line
+     *    isLastLine:  true if pos.line is last line of require() block (with ";"); insertion pt will be next-to-last line
+     *      OR true if pos.line - 1 is ONLY line in require() block; insertion pt will be 2nd line in block, making it multi-line
      */
     function determineInsertionPos(editor, requireCall) {
         var doc = editor.document;
@@ -250,6 +259,19 @@ define(function (require, exports, module) {
                 leadingWs = insertionContext.match[1];
             }
             
+            // Semicolon fixup
+            var trailingDelim = ",";
+            if (insertionContext.isFirstLine && insertionContext.isLastLine) {
+                trailingDelim = ";";  // move semicolon to our new line...
+                
+                var lineNum = insertionContext.pos.line - 1;
+                var lineText = editor.document.getLine(lineNum);
+                var semicolon = lineText.lastIndexOf(";");
+                if (semicolon !== -1) {
+                    editor.document.replaceRange(",", {line: lineNum, ch: semicolon}, {line: lineNum, ch: semicolon + 1});  // ...from the old line
+                }
+            }
+            
             // Determine whitespace between module name and '='
             var trailingWs;
             var eqColumn = insertionContext.lineText.indexOf("=");
@@ -261,7 +283,7 @@ define(function (require, exports, module) {
             }
             
             // Make the edit
-            var code = leadingWs + importModuleInfo.moduleName + trailingWs + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\"),\n";
+            var code = leadingWs + importModuleInfo.moduleName + trailingWs + " = " + requireCall + "(\"" + importModuleInfo.requirePath + "\")" + trailingDelim + "\n";
             
             editor.document.replaceRange(code, insertionPos);
         }

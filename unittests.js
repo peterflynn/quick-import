@@ -21,8 +21,8 @@
  */
 
 
-/*jslint vars: true, plusplus: true, devel: true, browser: true, nomen: true, indent: 4, maxerr: 50 */
-/*global define, describe, it, expect, beforeEach, afterEach, waitsFor, runs, $, brackets, waitsForDone */
+/*jslint vars: true, plusplus: true, devel: true, browser: true, nomen: true, indent: 4 */
+/*global define, describe, it, expect, beforeEach, afterEach, brackets */
 
 define(function (require, exports, module) {
     "use strict";
@@ -34,7 +34,7 @@ define(function (require, exports, module) {
     // Our own module
     var ImportInserter   = require("ImportInserter");
 
-    describe("Require() insertion", function () {
+    describe("[pf] Quick Import: Require() insertion", function () {
 
         var testDocument, testEditor;
         
@@ -113,7 +113,7 @@ define(function (require, exports, module) {
             
             var lines = startingText.split("\n");
             lines.splice(5, 0, "        EditorCommandHandlers = require(\"editor/EditorCommandHandlers\"),");
-//            lines.splice(4, 3, "    var CommandManager        = require(\"command/CommandManager\"),",        // TODO: later functionality
+//            lines.splice(4, 3, "    var CommandManager        = require(\"command/CommandManager\"),",        // TODO: later functionality - adjust other lines' indent
 //                               "        EditorCommandHandlers = require(\"editor/EditorCommandHandlers\"),",
 //                               "        Commands              = require(\"command/Commands\"),",
 //                               "        Menus                 = require(\"command/Menus\"),"
@@ -201,16 +201,17 @@ define(function (require, exports, module) {
             expect(testDocument.getText()).toBe(expectedText);
         });
         
-        it("do something semi-useful when require() block is 1 line long", function () {
+        it("insert properly when require() block is 1 line long", function () {
             var startingText = require1Line;
             testDocument.setText(startingText);
             
             testEditor.setCursorPos({ line: 7, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/package/Editor.js");
             
-            // failure mode: we insert the import statement on the line line after the 1-line require without fixing up its trailing ";"
+            // inserted on the line after the 1-line require, with proper ";" fixup
             var lines = startingText.split("\n");
-            lines.splice(5, 0, "        Editor         = require(\"package/Editor\"),");
+            lines[4] = lines[4].substr(0, lines[4].length - 1) + ",";
+            lines.splice(5, 0, "        Editor         = require(\"package/Editor\");");
             var expectedText = lines.join("\n");
             expect(testDocument.getText()).toBe(expectedText);
         });
@@ -334,7 +335,7 @@ define(function (require, exports, module) {
         
         // Non-JS files ---------------------------------------------------------------------------
         
-        it("do something semi-usefil when importing text file via require()", function () {
+        it("do something semi-useful when importing text file via require()", function () {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
