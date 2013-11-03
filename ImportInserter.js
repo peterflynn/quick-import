@@ -338,6 +338,7 @@ define(function (require, exports, module) {
             var documentText = doc.getText();
             var match = DEFINE_LINE_REGEXP.exec(documentText);
             if (match && match[1]) {
+                // FIXME : Will not work if match[2] is a match with the content of match[1]
                 var indexStartCaptureImport = match[0].lastIndexOf(match[1]);
                 var indexStartCaptureModule = match[0].lastIndexOf(match[2]);
                 return {    importsAsString : match[1],
@@ -364,22 +365,6 @@ define(function (require, exports, module) {
             return (inputString === "") ?  [] : inputString.split(",");
         }
     
-        /**
-        *   Check that the module is not already imported in the current file
-        **/
-        function checkForDuplicateModule() {
-        
-            
-        }
-        
-        /**
-        *   If the giben alias has already been chosen, rename it
-        *   TODO: Define a rename policy
-        **/
-        function renameDuplicate() {
-        
-            
-        }
         
         currentDependencies = getCurrentDependencies();
         if (currentDependencies) {
