@@ -50,6 +50,8 @@ define(function (require, exports, module) {
             SpecRunnerUtils.destroyMockEditor(testDocument);
         });
         
+        
+        
         var require3Lines =
             "define(function (require, exports, module) {\n" +
             "    \"use strict\";\n" +
@@ -80,6 +82,28 @@ define(function (require, exports, module) {
         
         var requireNone =
             "define(function (require, exports, module) {\n" +
+            "    \"use strict\";\n" +
+            "    \n" +
+            "    function foo() {\n" +
+            "        bar();\n" +
+            "    }\n" +
+            "    \n" +
+            "});";
+        
+                
+        var requirePureAmd =
+            "define(['require', 'jquery', 'backbone'], function (require, jquery, backbone) {\n" +
+            "    \"use strict\";\n" +
+            "    \n" +
+            "    function foo() {\n" +
+            "        bar();\n" +
+            "    }\n" +
+            "    \n" +
+            "});";
+        
+        
+        var requirePureAmdExpectedAfterImport =
+            "define([\n\t'require',\n\t'jquery',\r\n\t'backbone',\n\t'package/Editor'\n], function (require, jquery, backbone, Editor) {\n" +
             "    \"use strict\";\n" +
             "    \n" +
             "    function foo() {\n" +
@@ -333,6 +357,19 @@ define(function (require, exports, module) {
         });
         
         
+        // Amd Import
+        it("correclty detect amd and add to top depencies", function () {
+            
+            var startingText = requirePureAmd;
+            testDocument.setText(startingText);
+            
+            ImportInserter.insertImport("/foo/bar/src/package/Editor.js");
+            
+            var expectedText = requirePureAmdExpectedAfterImport;
+            //TODO: Fixme: Handle carriage return correctly
+            expect(testDocument.getText().replace(/(\r\n|\n|\r)/gm, '')).toBe(expectedText.replace(/(\r\n|\n|\r)/gm, ''));
+        });
+        
         // Non-JS files ---------------------------------------------------------------------------
         
         it("do something semi-useful when importing text file via require()", function () {
@@ -348,6 +385,9 @@ define(function (require, exports, module) {
             var expectedText = lines.join("\n");
             expect(testDocument.getText()).toBe(expectedText);
         });
+        
+        
+        
         
         
     }); // top-level describe()
