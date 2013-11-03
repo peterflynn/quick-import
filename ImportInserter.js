@@ -57,7 +57,6 @@ define(function (require, exports, module) {
     // --------------------------------------------------------------------------------------------
     // Code generation & insertion
     
-    var test = ProjectManager.getInitialProjectPath();
     var REQUIRE_ROOT = "/src/";
     var EXTENSIONS_ROOT = "extensions/";  // atop REQUIRE_ROOT
 
