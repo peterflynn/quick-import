@@ -83,7 +83,7 @@ define(function (require, exports, module) {
     }
     
     var REQUIRE_LINE_REGEXP = /^(\s*)(\w.*)=(.+)(,|;)/;
-    var DEFINE_LINE_REGEXP = /define\([\[]?([\s\S]*?)[\s\S]?,?[\s\S]?function[\s\S]?\(([\s\S]*?)\)/;
+    var DEFINE_LINE_REGEXP = /define\([\[]?([\s\S]*?)[\s\S]?\],[\s\S]*?function[\s\S]?\(([\s\S]*?)\)/;
     
     function isFirstLine(match) {
         return match[2].indexOf("var ") !== -1;
