@@ -83,7 +83,7 @@ define(function (require, exports, module) {
     }
     
     var REQUIRE_LINE_REGEXP = /^(\s*)(\w.*)=(.+)(,|;)/;
-    var DEFINE_LINE_REGEXP = /define\([\[]?([\s\S]*?)[\s\S]?\],[\s\S]*?function[\s\S]?\(([\s\S]*?)\)/;
+    var DEFINE_LINE_REGEXP = /define\([\[]?([\s\S]*?)\],[\s\S]*?function[\s\S]?\(([\s\S]*?)\)/;
     
     function isFirstLine(match) {
         return match[2].indexOf("var ") !== -1;
@@ -338,6 +338,8 @@ define(function (require, exports, module) {
             var documentText = doc.getText();
             var match = DEFINE_LINE_REGEXP.exec(documentText);
             if (match && match[1]) {
+			
+
                 // FIXME : Will not work if match[2] is a match with the content of match[1]
                 var indexStartCaptureImport = match[0].lastIndexOf(match[1]);
                 var indexStartCaptureModule = match[0].lastIndexOf(match[2]);
@@ -357,12 +359,14 @@ define(function (require, exports, module) {
         *
         **/
         function stringAsArray(inputString) {
+                
+			var cleanupstring = inputString;
+            cleanupstring = cleanupstring.replace(/(\r\n|\n|\r)/gm, '');
+            cleanupstring = cleanupstring.replace(/\s+/g, '');
+            cleanupstring = cleanupstring.replace(/\t+/g, '');
             
-            inputString = inputString.replace(/(\r\n|\n|\r)/gm, '');
-            inputString = inputString.replace(/\s+/g, '');
-            inputString = inputString.replace(/\t+/g, '');
             
-            return (inputString === "") ?  [] : inputString.split(",");
+            return (cleanupstring === "") ?  [] : cleanupstring.split(",");
         }
     
         
