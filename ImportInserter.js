@@ -28,18 +28,22 @@
  * Handles code generation & insertion
  */
 define(function (require, exports, module) {
+    
     "use strict";
     
     // Brackets modules
-    var EditorManager       = brackets.getModule("editor/EditorManager");
+    var EditorManager           = brackets.getModule("editor/EditorManager"),
+        ProjectManager          = brackets.getModule("project/ProjectManager");
     
     // TODO
     //  - deal with /test/spec
     //  - deal with special cases like Editor & NFS
     //  - insert in proper alphabetical order (**by rel-path**, not by bare module name) (adjusting "var" and ";" location as needed)
-    //  - handle NO existing import block - create new import block 'near' top of file
-    //  - remove folder-name assumptions
+    //  - handle NO existing import block - create new import block 'near' top of file 
+    //  - handle NO exisiting import amd depency list ( [] )
+    //  - remove folder-name assumptions ( There should be a way to get the loaded root repository from brackets )
     //      TODO: write up 'how to use prefs' docs while doing this
+    //  ( projectManager.getProjectRoot() give the loaded project root, but root path depends on the naming conventions it could be src, WebContent )
     //  - filter out or heavily down-rank non-.js files?
     //  - work in Brackets unit test code (files outside /src & with special /spec context)
     //  - bump out other lines' = signs if needed
@@ -47,7 +51,6 @@ define(function (require, exports, module) {
     //  - show toast for imports that were inserted outside of viewport area
     //  - support pre-canned import options for NodeJS standard APIs
     //  - recognize locally installed NodeJS packages (npm) & list those as options too
-    //  - support pure-AMD syntax (array of module names + list of arguments)
     //  - if file extension != .js, generate a "text!" require() instead
     
     
@@ -80,6 +83,7 @@ define(function (require, exports, module) {
     }
     
     var REQUIRE_LINE_REGEXP = /^(\s*)(\w.*)=(.+)(,|;)/;
+    var DEFINE_LINE_REGEXP = /define\([\[]?([\s\S]*?)\],[\s\S]*?function[\s\S]?\(([\s\S]*?)\)/;
     
     function isFirstLine(match) {
         return match[2].indexOf("var ") !== -1;
@@ -103,6 +107,9 @@ define(function (require, exports, module) {
      *    extensionName: name of extension folder requirePath is relative to, if any
      */
     function parseModulePath(fullPath) {
+        
+        // TODO: Use makeProjectRelativeIfPossible ?
+        // TODO: Instead of folder assumption maybe we can search for the first index.html/.js lying in the project root ( ProjectManager.getProjectRoot() )
         var relPath = stripPrefix(fullPath, REQUIRE_ROOT, true);
         if (!relPath) {
             console.error("File lies outside Require root: " + fullPath);
@@ -141,6 +148,28 @@ define(function (require, exports, module) {
             extensionName: extensionName
         };
     }
+    
+    /**
+    *   Remove forbidden characters in variable name
+    *   TODO: camelCase
+    *   TODO: First letter lower case if singleton other otherwiser uppercase
+    *   @return String, variable name to use as import name
+    */
+    function moduleNameAsVariableName(moduleName) {
+        return moduleName.replace(/[^\w\s]/gi, '');
+    }
+    
+    /*
+    *   @param import path
+    *   If a Mapping is configured for the given import, it will return the alias of the module
+    *
+    */
+    function getMappedImport(importString) {
+        // TODO: Load require-config
+        // TODO: Search for a match
+        return importString;
+    }
+
     
     
     /**
@@ -285,13 +314,120 @@ define(function (require, exports, module) {
     }
     
     
+    
+    function doInsertAmd(editor, newImport) {
+        
+        var doc = editor.document,
+            currentDependencies,
+            imports,
+            moduleNames,
+            moduleInfos,
+            importsAsString,
+            finalDocContent;
+        
+        
+        /** 
+        *   Extract the list of import from the current document 
+        *   @return { 
+        *        startIndex : pos of the first import caracters
+        *        moduleNamesAsString : String representing the list of module names
+        *        importsAsString : String representing the list of imports
+        *       }
+        **/
+        function getCurrentDependencies() {
+            var documentText = doc.getText();
+            var match = DEFINE_LINE_REGEXP.exec(documentText);
+            if (match && match[1]) {
+			
+
+                // FIXME : Will not work if match[2] is a match with the content of match[1]
+                var indexStartCaptureImport = match[0].lastIndexOf(match[1]);
+                var indexStartCaptureModule = match[0].lastIndexOf(match[2]);
+                return {    importsAsString : match[1],
+                            moduleNamesAsString : match[2],
+                            startIndex : match.index + indexStartCaptureImport,
+                            startIndexForModules : match.index + indexStartCaptureModule };
+            }
+            return null;
+        }
+        
+        
+        /**
+        *
+        *   Build imports as an array, cleanup special chars
+        *   Remove line breaks, tabs and white spaces, will be added when import array is rebuilt
+        *
+        **/
+        function stringAsArray(inputString) {
+                
+			var cleanupstring = inputString;
+            cleanupstring = cleanupstring.replace(/(\r\n|\n|\r)/gm, '');
+            cleanupstring = cleanupstring.replace(/\s+/g, '');
+            cleanupstring = cleanupstring.replace(/\t+/g, '');
+            
+            
+            return (cleanupstring === "") ?  [] : cleanupstring.split(",");
+        }
+    
+        
+        currentDependencies = getCurrentDependencies();
+        if (currentDependencies) {
+            imports = currentDependencies.importsAsString ? stringAsArray(currentDependencies.importsAsString) : [];
+            moduleNames = currentDependencies.moduleNamesAsString ? stringAsArray(currentDependencies.moduleNamesAsString) : [];
+        } else {
+            // TODO: We must  search again with a modified regexp, than we shall start building the depencies array
+            return;
+        }
+        
+        // TODO: Depending on the extension we should search for the appropriate plugin, 
+        // maybe throw an error if that plugin does not exist within the project
+        moduleInfos = parseModulePath(newImport);
+       
+        imports.push("'" + getMappedImport(moduleInfos.requirePath) + "'");
+        moduleNames.push(moduleNameAsVariableName(moduleInfos.moduleName));
+        
+
+        importsAsString = currentDependencies.importsAsString;
+        finalDocContent = doc.getText().substr(0, currentDependencies.startIndex)
+            + "\n\t"
+            + imports.join(",\n\t")
+            + "\n"
+            + doc.getText().substr(currentDependencies.startIndex + importsAsString.length, (currentDependencies.startIndexForModules - (currentDependencies.startIndex + importsAsString.length)))
+            + moduleNames.join(", ")
+            + doc.getText().substr(currentDependencies.startIndexForModules + currentDependencies.moduleNamesAsString.length, (doc.getText().length - (currentDependencies.startIndexForModules + currentDependencies.moduleNamesAsString.length)));
+        
+        doc.setText(finalDocContent);
+        
+    }
+    
+    /*
+    *   Detect if the current file is using amd syntax.
+    *   return Boolean
+    **/
+    function isFileUsingAmdSyntax(doc) {
+        return doc.getText().match(/define\(\[/);
+    }
+    
+    
+    /**
+    *   Insert the correct import
+    *
+    **/
     function insertImport(importPath) {
         var editor = EditorManager.getActiveEditor();
+
         if (editor) {
             editor.document.batchOperation(function () {
-                doInsert(editor, importPath);
+                
+                if (isFileUsingAmdSyntax(editor.document)) {
+                    doInsertAmd(editor, importPath);
+                } else {
+                    doInsert(editor, importPath);
+                }
+                
             });
         }
+        
     }
     
     
