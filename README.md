@@ -33,4 +33,4 @@ To install extensions:
 MIT-licensed -- see `main.js` for details.
 
 ### Compatibility
-Requires Brackets Sprint 22 or newer (or Adobe Edge Code Preview 4 or newer).
+Requires Brackets Sprint 34 or newer (or Adobe Edge Code Preview 7 or newer).
