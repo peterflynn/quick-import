@@ -54,8 +54,9 @@ define(function (require, exports, module) {
     // --------------------------------------------------------------------------------------------
     // Code generation & insertion
     
-    var REQUIRE_ROOT = "/src/";
-    var EXTENSIONS_ROOT = "extensions/";  // atop REQUIRE_ROOT
+    var REQUIRE_ROOT_GIT = "/src/";
+    var REQUIRE_ROOT_INST = "/www/";
+    var EXTENSIONS_ROOT = "extensions/";  // atop REQUIRE_ROOT_*
 
     function stripPrefix(str, prefix, allowMoreToLeft) {
         var index = str.indexOf(prefix);
@@ -97,13 +98,13 @@ define(function (require, exports, module) {
     }
     
     /**
-     * Given a path relative to REQUIRE_ROOT. Returns:
+     * Given a full path within the REQUIRE_ROOT subtree, returns:
      *    requirePath: string passed to require() - root-relative path sans file extension
      *    moduleName: file name sans extension alone
      *    extensionName: name of extension folder requirePath is relative to, if any
      */
     function parseModulePath(fullPath) {
-        var relPath = stripPrefix(fullPath, REQUIRE_ROOT, true);
+        var relPath = stripPrefix(fullPath, REQUIRE_ROOT_GIT, true) || stripPrefix(fullPath, REQUIRE_ROOT_INST, true);
         if (!relPath) {
             console.error("File lies outside Require root: " + fullPath);
             return;

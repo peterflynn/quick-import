@@ -29,7 +29,7 @@ define(function (require, exports, module) {
 
     // Modules from the SpecRunner window
     var SpecRunnerUtils  = brackets.getModule("spec/SpecRunnerUtils"),
-        NativeFileSystem = brackets.getModule("file/NativeFileSystem").NativeFileSystem;
+        FileSystem       = brackets.getModule("filesystem/FileSystem");
     
     // Our own module
     var ImportInserter   = require("ImportInserter");
@@ -43,7 +43,7 @@ define(function (require, exports, module) {
             var mock = SpecRunnerUtils.createMockEditor("", "javascript");
             testDocument = mock.doc;
             testEditor   = mock.editor;
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/package/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/package/DestModule.js");
         });
         
         afterEach(function () {
@@ -118,6 +118,21 @@ define(function (require, exports, module) {
 //                               "        Commands              = require(\"command/Commands\"),",
 //                               "        Menus                 = require(\"command/Menus\"),"
 //                        );
+            var expectedText = lines.join("\n");
+            expect(testDocument.getText()).toBe(expectedText);
+        });
+        
+        it("work with 'www' root too", function () {
+            var startingText = require3Lines;
+            testDocument.setText(startingText);
+            
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/www/package/DestModule.js");
+            
+            testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
+            ImportInserter.insertImport("/foo/bar/www/package/Editor.js");
+            
+            var lines = startingText.split("\n");
+            lines.splice(5, 0, "        Editor         = require(\"package/Editor\"),");
             var expectedText = lines.join("\n");
             expect(testDocument.getText()).toBe(expectedText);
         });
@@ -223,7 +238,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/dev/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/dev/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/dev/myext/ExtMod.js");
@@ -238,7 +253,7 @@ define(function (require, exports, module) {
             var startingText = getModule3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/dev/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/dev/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/package/Editor.js");
@@ -253,7 +268,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/dev/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/dev/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/package/Editor.js");
@@ -269,7 +284,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/dev/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/dev/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/dev/otherext/ExtMod.js");
@@ -279,6 +294,8 @@ define(function (require, exports, module) {
         it("fail importing extension module from core", function () {
             var startingText = require3Lines;
             testDocument.setText(startingText);
+            
+            // (leave testDocument.file at its default, "/foo/bar/src/package/DestModule.js")
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/dev/myext/ExtMod.js");
@@ -290,7 +307,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/ExtMod.js");
@@ -301,7 +318,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/myext/ExtMod.js");
@@ -313,7 +330,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/dev/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/dev/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/ExtMod.js");
@@ -324,7 +341,7 @@ define(function (require, exports, module) {
             var startingText = require3Lines;
             testDocument.setText(startingText);
             
-            testDocument.file = new NativeFileSystem.FileEntry("/foo/bar/src/extensions/dev/myext/DestModule.js");
+            testDocument.file = FileSystem.getFileForPath("/foo/bar/src/extensions/dev/myext/DestModule.js");
             
             testEditor.setCursorPos({ line: 9, ch: 8 });        // just before bar()
             ImportInserter.insertImport("/foo/bar/src/extensions/something/ExtMod.js");

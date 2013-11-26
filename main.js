@@ -33,7 +33,6 @@ define(function (require, exports, module) {
         Menus               = brackets.getModule("command/Menus"),
         ProjectManager      = brackets.getModule("project/ProjectManager"),
         EditorManager       = brackets.getModule("editor/EditorManager"),
-        FileIndexManager    = brackets.getModule("project/FileIndexManager"),
         QuickOpen           = brackets.getModule("search/QuickOpen");
     
     // code generation & insertion
@@ -99,7 +98,7 @@ define(function (require, exports, module) {
         }
         
         var fileList;
-        var fileListPromise = FileIndexManager.getFileInfoList("all")
+        var fileListPromise = ProjectManager.getAllFiles()
             .done(function (result) {
                 fileList = result;
             });
@@ -147,9 +146,7 @@ define(function (require, exports, module) {
      * @return {boolean} true if this plugin wants to provide results for this query
      */
     function match(query) {
-        if (query.indexOf("=") === 0) {
-            return true;
-        }
+        return query[0] === "=";
     }
     
     
@@ -157,9 +154,8 @@ define(function (require, exports, module) {
     QuickOpen.addQuickOpenPlugin(
         {
             name: "Quick RequireJS Import",
-            label: "RequireJS Import",  // ignored before Sprint 22
-            languageIds: [],  // empty array = all file types  (Sprint 23+)
-            fileTypes:   [],  // (< Sprint 23)
+            label: "RequireJS Import",
+            languageIds: ["javascript"],
             done: function () {},
             search: search,
             match: match,
@@ -172,6 +168,10 @@ define(function (require, exports, module) {
     
     function beginFileSearch() {
         var currentEditor = EditorManager.getActiveEditor();
+        if (!currentEditor || currentEditor.document.getLanguage().getId() !== "javascript") {
+            return;
+        }
+        
         var prepopulateText = (currentEditor && currentEditor.getSelectedText()) || "";
 
         // Begin Quick Open in our search mode
