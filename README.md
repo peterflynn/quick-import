@@ -12,7 +12,8 @@ on the line beneath your cursor. Also supports brackets.getModule(), if you have
 ### Caveats
 * Only supports CommonJS-style imports (require() calls) - does not support "pure AMD" syntax (array of module names mapping to
   a list of arguments). Note that RequireJS supports both formats.
-* Assumes the root of your require() paths is a folder named "src" or "www"
+* Assumes the root of your require() paths is a folder named "src", "js", "scripts", or "www" (if present) or the root of your
+  Brackets project otherwise.
 * You must already have a block of require() calls somewhere in your module (typically near the top)
 * Assumes this block is a comma-separated list with one import per line &ndash; that is, assumes there's a `var` line at the start
   and a line ending in `;` at the end, with any lines in the middle ending in `,`

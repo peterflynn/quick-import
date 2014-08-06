@@ -31,7 +31,8 @@ define(function (require, exports, module) {
     "use strict";
     
     // Brackets modules
-    var EditorManager       = brackets.getModule("editor/EditorManager");
+    var EditorManager       = brackets.getModule("editor/EditorManager"),
+        ProjectManager      = brackets.getModule("project/ProjectManager");
     
     // TODO
     //  - deal with /test/spec
@@ -54,8 +55,6 @@ define(function (require, exports, module) {
     // --------------------------------------------------------------------------------------------
     // Code generation & insertion
     
-    var REQUIRE_ROOT_GIT = "/src/";
-    var REQUIRE_ROOT_INST = "/www/";
     var EXTENSIONS_ROOT = "extensions/";  // atop REQUIRE_ROOT_*
 
     function stripPrefix(str, prefix, allowMoreToLeft) {
@@ -104,7 +103,13 @@ define(function (require, exports, module) {
      *    extensionName: name of extension folder requirePath is relative to, if any
      */
     function parseModulePath(fullPath) {
-        var relPath = stripPrefix(fullPath, REQUIRE_ROOT_GIT, true) || stripPrefix(fullPath, REQUIRE_ROOT_INST, true);
+        // Guess the root of the Require module tree by looking for common source root folder names. If none
+        // found in this path, assume root is the root folder of the project.
+        var relPath = stripPrefix(fullPath, "/src/", true) ||
+                      stripPrefix(fullPath, "/js/", true) ||
+                      stripPrefix(fullPath, "/scripts/", true) ||
+                      stripPrefix(fullPath, "/www/", true) ||
+                      stripPrefix(fullPath, ProjectManager.getProjectRoot().fullPath, true);
         if (!relPath) {
             console.error("File lies outside Require root: " + fullPath);
             return;
